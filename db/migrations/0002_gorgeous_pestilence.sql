@@ -1,0 +1,1 @@
+ALTER TYPE "analysis_status" ADD VALUE 'failed';

@@ -7,7 +7,7 @@ import { ActionState } from "@/types"
 import { UnstructuredClient } from "unstructured-client"
 import { Strategy } from "unstructured-client/sdk/models/shared"
 
-const BUCKET_NAME = process.env.PDF_BUCKET_NAME || "pdf-uploads"
+const BUCKET_NAME = process.env.BOARD_DOCUMENTS_BUCKET || "board-documents"
 
 // Initialize the Unstructured client
 const unstructuredClient = new UnstructuredClient({
@@ -17,58 +17,86 @@ const unstructuredClient = new UnstructuredClient({
   }
 })
 
-export async function processPdfAction(
-  filePath: string,
+interface ProcessPdfInput {
+  filePaths: string[]
   prompt: string
-): Promise<ActionState<{ report: string }>> {
+}
+
+export async function processPdfAction({
+  filePaths,
+  prompt
+}: ProcessPdfInput): Promise<ActionState<{ report: string }>> {
   try {
     // 1. Get authenticated Supabase client
     const supabase = await getSupabaseClient()
 
-    // 2. Download the file
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .download(filePath)
+    // 2. Process each file
+    const processedFiles = await Promise.all(
+      filePaths.map(async filePath => {
+        // Clean the file path to ensure it's just the relative path
+        const cleanPath = filePath.includes("/storage/v1/object/public/")
+          ? new URL(filePath).pathname
+              .split("/storage/v1/object/public/")[1]
+              .split("/")
+              .slice(1)
+              .join("/")
+          : filePath
 
-    if (downloadError || !fileData) {
-      console.error("Download error:", downloadError)
-      throw new Error("Failed to download file from storage")
-    }
+        // Download the file
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from(BUCKET_NAME)
+          .download(cleanPath)
 
-    // 3. Process with Unstructured using the client library
-    const unstructuredResponse = await unstructuredClient.general.partition({
-      partitionParameters: {
-        files: {
-          content: await fileData.arrayBuffer(),
-          fileName: filePath.split("/").pop() || "document.pdf"
-        },
-        strategy: Strategy.HiRes,
-        splitPdfPage: true,
-        splitPdfAllowFailed: true,
-        splitPdfConcurrencyLevel: 15,
-        languages: ["eng"]
-      }
-    })
+        if (downloadError || !fileData) {
+          console.error("Download error:", downloadError)
+          throw new Error(`Failed to download file: ${cleanPath}`)
+        }
 
-    if (
-      unstructuredResponse.statusCode !== 200 ||
-      !unstructuredResponse.elements
-    ) {
-      console.error("Unstructured error:", unstructuredResponse)
-      throw new Error("Failed to extract text from PDF")
-    }
+        // Process with Unstructured
+        const unstructuredResponse = await unstructuredClient.general.partition(
+          {
+            partitionParameters: {
+              files: {
+                content: await fileData.arrayBuffer(),
+                fileName: cleanPath.split("/").pop() || "document.pdf"
+              },
+              strategy: Strategy.HiRes,
+              splitPdfPage: true,
+              splitPdfAllowFailed: true,
+              splitPdfConcurrencyLevel: 15,
+              languages: ["dan"]
+            }
+          }
+        )
 
-    // 4. Process the structured elements
-    const extractedText = unstructuredResponse.elements
-      .map(element => {
-        // Include metadata about the element's location in the document
-        return `[Page ${element.metadata?.page_number || "unknown"}, ${
-          element.metadata?.category || "unknown"
-        }]: ${element.text}`
+        if (
+          unstructuredResponse.statusCode !== 200 ||
+          !unstructuredResponse.elements
+        ) {
+          console.error("Unstructured error:", unstructuredResponse)
+          throw new Error(`Failed to extract text from PDF: ${cleanPath}`)
+        }
+
+        return {
+          fileName: cleanPath.split("/").pop() || "document.pdf",
+          fileData,
+          extractedText: unstructuredResponse.elements
+            .map(element => {
+              return `[File: ${cleanPath.split("/").pop()}, Page ${
+                element.metadata?.page_number || "unknown"
+              }, ${element.metadata?.category || "unknown"}]: ${element.text}`
+            })
+            .join("\n\n")
+        }
       })
-      .join("\n\n")
+    )
 
-    // 5. Process with Gemini using both PDF and structured text
+    // 3. Combine all extracted text
+    const combinedText = processedFiles
+      .map(file => file.extractedText)
+      .join("\n\n=== Next Document ===\n\n")
+
+    // 4. Process with Gemini
     const result = await generateText({
       model: google("gemini-2.0-flash"),
       messages: [
@@ -76,13 +104,23 @@ export async function processPdfAction(
           role: "user",
           content: [
             {
-              type: "text",
-              text: `${prompt}\n\nStructured document content:\n${extractedText}`
+              type: "file",
+              mimeType: "application/pdf",
+              data: await processedFiles[0].fileData.arrayBuffer()
             },
             {
               type: "file",
               mimeType: "application/pdf",
-              data: await fileData.arrayBuffer()
+              data: await processedFiles[1].fileData.arrayBuffer()
+            },
+            {
+              type: "file",
+              mimeType: "application/pdf",
+              data: await processedFiles[2].fileData.arrayBuffer()
+            },
+            {
+              type: "text",
+              text: `${prompt}\n\nAnalyze the following documents together:\n${combinedText}`
             }
           ]
         }
@@ -91,14 +129,14 @@ export async function processPdfAction(
 
     return {
       isSuccess: true,
-      message: "PDF processed successfully",
+      message: "PDFs processed successfully",
       data: { report: result.text }
     }
   } catch (error) {
-    console.error("Error processing PDF:", error)
+    console.error("Error processing PDFs:", error)
     return {
       isSuccess: false,
-      message: error instanceof Error ? error.message : "Failed to process PDF"
+      message: error instanceof Error ? error.message : "Failed to process PDFs"
     }
   }
 }

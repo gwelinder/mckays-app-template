@@ -24,9 +24,8 @@ import {
 } from "@/components/ui/popover"
 import { AddCompanyDialog } from "./add-company-dialog"
 import { DeleteCompanyDialog } from "./delete-company-dialog"
-import { useCompanyContext } from "@/lib/companyProvider"
+import { useCompanyContext } from "@/lib/company-provider"
 import { Label } from "@/components/ui/label"
-import type { Company } from "@/schema"
 
 export function CompanySelector() {
   const [open, setOpen] = React.useState(false)

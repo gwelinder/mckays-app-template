@@ -1,69 +1,56 @@
-"use client"
+"use server"
 
-import { useState } from "react"
+import { getCompanies } from "@/actions/companies/index"
+import { CompanyProvider } from "@/lib/company-provider"
+import CompanyDataView from "@/components/company-data-view"
 
-export default function PdfUploadPage() {
-  const [file, setFile] = useState<File | null>(null)
-  const [report, setReport] = useState("")
-  const [loading, setLoading] = useState(false)
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0])
-    }
-  }
-
-  const handleUpload = async () => {
-    if (!file) return
-    setLoading(true)
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-      // Upload PDF using the API route
-      const uploadRes = await fetch("/api/upload-pdf", {
-        method: "POST",
-        body: formData
-      })
-      const uploadJson = await uploadRes.json()
-      if (uploadJson.data?.path) {
-        // Call processing endpoint with the predefined prompt
-        const prompt =
-          "Target: find data inconsistencies in uploaded documents (both between documents and in each document). Generate a detailed report that describes all inconsistencies in data in each of the documents and when comparing the documents. The report should include references to page numbers and sections."
-        const processRes = await fetch("/api/process-pdf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            path: uploadJson.data.path,
-            prompt: prompt
-          })
-        })
-        const processJson = await processRes.json()
-        setReport(processJson.report)
-      }
-    } catch (error) {
-      console.error("Upload error:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+export default async function DemoPage() {
+  const result = await getCompanies()
+  const companies = result.isSuccess ? result.data.companies : []
+  const initialSelectedCompanyId = result.isSuccess
+    ? result.data.initialSelectedCompanyId
+    : null
 
   return (
-    <div className="p-4">
-      <h1 className="mb-4 text-2xl font-bold">PDF Upload Demo</h1>
-      <input type="file" accept="application/pdf" onChange={handleFileChange} />
-      <button
-        onClick={handleUpload}
-        disabled={loading}
-        className="mt-4 rounded bg-blue-500 px-4 py-2 text-white"
-      >
-        {loading ? "Processing..." : "Upload and Process"}
-      </button>
-      {report && (
-        <div className="mt-6">
-          <h2 className="mb-2 text-xl font-semibold">Generated Report</h2>
-          <pre className="whitespace-pre-wrap rounded border p-4">{report}</pre>
+    <div className="container mx-auto py-8">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold">Company Management Demo</h1>
+        <p className="text-muted-foreground mt-2">
+          This demo showcases the company management system with document
+          handling capabilities.
+        </p>
+      </div>
+
+      <div className="grid gap-8">
+        <div className="bg-card rounded-lg border p-6">
+          <h2 className="mb-4 text-2xl font-semibold">Features</h2>
+          <ul className="list-inside list-disc space-y-2">
+            <li>Add and manage companies with CVR lookup</li>
+            <li>Upload and organize documents by category</li>
+            <li>View company details and production units</li>
+            <li>Analyze documents with AI capabilities</li>
+            <li>Track document status and metadata</li>
+          </ul>
         </div>
-      )}
+
+        <div className="bg-card rounded-lg border">
+          <div className="border-b p-6">
+            <h2 className="text-2xl font-semibold">Live Demo</h2>
+            <p className="text-muted-foreground mt-2">
+              Try out the features by interacting with the interface below.
+            </p>
+          </div>
+
+          <div className="p-6">
+            <CompanyProvider
+              initialCompanies={companies}
+              initialSelectedCompanyId={initialSelectedCompanyId}
+            >
+              <CompanyDataView />
+            </CompanyProvider>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

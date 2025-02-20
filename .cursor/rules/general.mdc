@@ -1,16 +1,29 @@
 ---
 description: Follow these rules for all requests.
-globs: 
+globs: */**
 ---
 # Project Instructions
 
 Use specification and guidelines as you build the app.
 
-Write the complete code for every step. Do not get lazy.
+Write the complete code for every step. DO NOT BE LAZY. DO NOT OMIT CODE.
 
 Your goal is to completely finish whatever I ask for.
 
+Check project files before suggesting structural or dependency changes
+
+Ask 'stupid' questions like: are you sure this is the best way to implement this?
+
 You will see <ai_context> tags in the code. These are context tags that you should use to help you understand the codebase.
+
+## Scraptpad
+
+You MUST actively use the [scratchpad.md](mdc:mckays-app-template/mckays-app-template/docs/scratchpad.md) file as a scratchpad to organize your thoughts. Especially when you receive a new task, you should first review the content of the scratchpad, clear old different task if necessary, first explain the task, and plan the steps you need to take to complete the task. You can use todo markers to indicate the progress, e.g.
+[X] Task 1
+[ ] Task 2
+Also update the progress of the task in the Scratchpad when you finish a subtask.
+Especially when you finished a milestone, it will help to improve your depth of task accomplishment to use the scratchpad to reflect and plan.
+The goal is to help you maintain a big picture as well as the progress of the task. Always refer to the Scratchpad when you plan the next step.
 
 ## Overview
 

@@ -40,7 +40,9 @@ export const Files = ({
     mutate,
     isLoading
   } = useSWR<FileData[]>(
-    selectedCompanyId ? `api/files/list?companyId=${selectedCompanyId}` : null,
+    selectedCompanyId
+      ? `http://localhost:3000/api/files/list?companyId=${selectedCompanyId}`
+      : null,
     fetcher,
     { fallbackData: [] }
   )
@@ -57,7 +59,7 @@ export const Files = ({
       setUploadQueue(currentQueue => [...currentQueue, file.name])
 
       await fetch(
-        `/api/files/upload?filename=${file.name}&companyId=${selectedCompanyId}`,
+        `http://localhost:3000/api/files/upload?filename=${file.name}&companyId=${selectedCompanyId}`,
         {
           method: "POST",
           body: file

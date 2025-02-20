@@ -18,7 +18,11 @@ import {
   Database,
   DollarSign,
   LucideIcon,
-  Shield
+  Shield,
+  FileText,
+  Brain,
+  History,
+  AlertCircle
 } from "lucide-react"
 
 interface FeatureProps {
@@ -29,38 +33,54 @@ interface FeatureProps {
 
 const features: FeatureProps[] = [
   {
-    title: "Frontend",
-    description: "Next.js, Tailwind, Shadcn, Framer Motion",
-    icon: AppWindow
+    title: "AI-Powered Analysis",
+    description:
+      "Intelligent review of board materials for inconsistencies, compliance issues, and missing information",
+    icon: Brain
   },
   {
-    title: "Backend",
-    description: "Postgres, Supabase, Drizzle ORM, Server Actions",
-    icon: Database
+    title: "Document Management",
+    description:
+      "Secure repository for board materials, policies, and corporate governance documents",
+    icon: FileText
   },
   {
-    title: "Auth",
-    description: "Clerk",
+    title: "Compliance Tracking",
+    description:
+      "Automated checks against corporate policies and Scandinavian regulatory requirements",
     icon: Shield
   },
   {
-    title: "Payments",
-    description: "Stripe",
-    icon: DollarSign
+    title: "Risk Monitoring",
+    description:
+      "Proactive identification of potential liability risks and governance issues",
+    icon: AlertCircle
+  },
+  {
+    title: "Historical Context",
+    description:
+      "Track changes and decisions across meetings for better continuity",
+    icon: History
+  },
+  {
+    title: "Secure Infrastructure",
+    description:
+      "Enterprise-grade security with local data processing and storage",
+    icon: Database
   }
 ]
 
 const FeatureCard = ({ title, description, icon: Icon }: FeatureProps) => (
   <motion.div
-    whileHover={{ scale: 1.05 }}
+    whileHover={{ scale: 1.02 }}
     transition={{ type: "spring", stiffness: 300 }}
     className="transform-gpu"
   >
-    <Card className="group transition-shadow duration-200 hover:shadow-lg">
+    <Card className="group h-full transition-shadow duration-200 hover:shadow-lg">
       <CardHeader>
         <Icon className="text-primary mb-2 size-12" />
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardDescription className="text-base">{description}</CardDescription>
       </CardHeader>
     </Card>
   </motion.div>
@@ -75,8 +95,14 @@ export const FeaturesSection = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
-          <h2 className="mb-12 text-center text-4xl font-bold">Tech Stack</h2>
-          <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+          <h2 className="mb-4 text-center text-4xl font-bold">
+            Comprehensive Board Support
+          </h2>
+          <p className="text-muted-foreground mx-auto mb-12 max-w-2xl text-center text-lg">
+            Everything you need to fulfill your board member responsibilities
+            effectively and securely
+          </p>
+          <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {features.map((feature, index) => (
               <FeatureCard key={index} {...feature} />
             ))}

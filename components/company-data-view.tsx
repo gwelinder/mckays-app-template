@@ -1,229 +1,133 @@
 "use client"
 
-import { useCompanyContext } from "@/lib/companyProvider"
-import { useEffect, useState } from "react"
-import { fetchCompanyFromDB } from "@/app/actions/company"
+import { useCompanyContext } from "@/lib/company-provider"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { DeleteCompanyDialog } from "@/components/delete-company-dialog"
-import { Card, CardContent } from "@/components/ui/card"
+import { AddCompanyDialog } from "./add-company-dialog"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger
-} from "@/components/ui/collapsible"
-import { ChevronDown, ChevronUp, InfoIcon } from "lucide-react"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip"
-import { cn } from "@/lib/utils"
-import { AddCompanyDialog } from "@/components/add-company-dialog"
-import OpenaiLibrary from "@/components/openai-library"
-import { Document } from "@/schema"
-import PredefinedActions from "@/components/assistant/pre-actions"
+import { useRouter } from "next/navigation"
+import { Plus, Building2, Users, Calendar } from "lucide-react"
+import { SelectCompany } from "@/db/schema"
 
 const CompanyDataView = () => {
-  const { companies, selectedCompanyId, setSelectedCompanyId } =
-    useCompanyContext()
+  const router = useRouter()
+  const { companies } = useCompanyContext()
   const [addCompanyOpen, setAddCompanyOpen] = useState(false)
-  const [companyData, setCompanyData] = useState<any>(null)
-  const [loading, setLoading] = useState<boolean>(true)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false)
-  const [isOpen, setIsOpen] = useState(false)
-  const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([])
 
-  const handleSelectDocuments = (documents: Document[]) => {
-    setSelectedDocuments(documents)
+  const handleCompanySelect = (companyId: string) => {
+    router.push(`/companies/${companyId}`)
   }
-  useEffect(() => {
-    if (selectedCompanyId) {
-      setLoading(true)
-      fetchCompanyFromDB(selectedCompanyId).then(data => {
-        setCompanyData(data)
-        setLoading(false)
-      })
+
+  const formatMetadata = (company: SelectCompany) => {
+    try {
+      const metadata =
+        typeof company.metadata === "string"
+          ? JSON.parse(company.metadata)
+          : company.metadata || {}
+
+      return {
+        employees: metadata.employees || "N/A",
+        startdate: metadata.startdate || "N/A",
+        industry: metadata.industrydesc || "N/A"
+      }
+    } catch (error) {
+      console.error("Error parsing metadata:", error)
+      return {
+        employees: "N/A",
+        startdate: "N/A",
+        industry: "N/A"
+      }
     }
-  }, [selectedCompanyId])
-
-  const formatValue = (value: any) =>
-    value === null || value === "" ? "N/A" : value.toString()
-
-  const renderMainInfo = (company: any) => {
-    const mainFields = [
-      { key: "industrydesc", label: "Industry" },
-      { key: "startdate", label: "Startdate" },
-      { key: "employees", label: "Employees" },
-      { key: "vat", label: "Vat" },
-      { key: "phone", label: "Phone" },
-      { key: "address", label: "Address" }
-    ]
-
-    return (
-      <div className="mb-6 grid grid-cols-3 gap-4">
-        {mainFields.map(({ key, label }) => (
-          <div key={key} className="flex flex-col">
-            <span className="text-sm font-medium text-gray-500">{label}</span>
-            <span className="font-semibold">
-              {formatValue(company.metadata[key])}
-            </span>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const renderAdditionalInfo = (company: any) => {
-    const excludeFields = [
-      "industrydesc",
-      "startdate",
-      "employees",
-      "vat",
-      "phone",
-      "address",
-      "productionunits"
-    ]
-    const additionalFields = Object.entries(company.metadata).filter(
-      ([key]) => !excludeFields.includes(key)
-    )
-
-    return (
-      <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-        {additionalFields.map(([key, value]) => (
-          <TooltipProvider key={key}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center space-x-2">
-                  <span className="capitalize text-gray-500">{key}:</span>
-                  <span className="font-medium">{formatValue(value)}</span>
-                  <InfoIcon size={16} className="text-gray-400" />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Additional information about {key}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ))}
-      </div>
-    )
-  }
-
-  const renderProductionUnits = (company: any) => {
-    if (
-      !company.metadata?.productionunits ||
-      company.metadata.productionunits.length === 0
-    )
-      return null
-
-    return (
-      <div className="mt-6">
-        <h3 className="mb-2 text-lg font-semibold">Production Units</h3>
-        {company.metadata.productionunits.map((unit: any, index: number) => (
-          <div
-            key={index}
-            className="mb-4 rounded-lg bg-gray-100 p-4 dark:bg-zinc-800"
-          >
-            {Object.entries(unit).map(([key, value]) => (
-              <div key={key} className="mb-1">
-                <span className="font-medium capitalize">{key}:</span>{" "}
-                {formatValue(value)}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Companies</h1>
+          <p className="text-muted-foreground">
+            Manage and analyze your portfolio of companies
+          </p>
+        </div>
+        <Button onClick={() => setAddCompanyOpen(true)}>
+          <Plus className="mr-2 size-4" />
+          Add Company
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {companies.map((company: SelectCompany) => {
+          const metadata = formatMetadata(company)
+          return (
+            <Card
+              key={company.id}
+              className="cursor-pointer transition-all duration-300 hover:shadow-lg"
+              onClick={() => handleCompanySelect(company.id)}
+            >
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <CardTitle className="text-xl">{company.name}</CardTitle>
+                    <CardDescription>
+                      <Badge variant="secondary" className="text-xs">
+                        CVR: {company.cvr}
+                      </Badge>
+                    </CardDescription>
+                  </div>
+                  <Building2 className="text-muted-foreground size-5" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Users className="text-muted-foreground size-4" />
+                      <span className="text-muted-foreground">Employees:</span>
+                      <span>{metadata.employees}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="text-muted-foreground size-4" />
+                      <span className="text-muted-foreground">Founded:</span>
+                      <span>{metadata.startdate}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-muted-foreground text-sm">
+                      {metadata.industry}
+                    </div>
+                    {company.tags && (
+                      <div className="flex flex-wrap gap-2">
+                        {JSON.parse(company.tags).map((tag: string) => (
+                          <Badge
+                            key={tag}
+                            variant="secondary"
+                            className="bg-primary/10 text-xs"
+                          >
+                            #{tag.toLowerCase().replace(/\s+/g, "-")}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
       <AddCompanyDialog
         open={addCompanyOpen}
         onOpenChange={setAddCompanyOpen}
       />
-      {companies.map((company: any) => (
-        <Card
-          key={company.id}
-          className={cn(
-            "cursor-pointer transition-all duration-300",
-            selectedCompanyId === company.id
-              ? "shadow-lg"
-              : "opacity-50 hover:opacity-75"
-          )}
-          onClick={() => setSelectedCompanyId(company.id)}
-        >
-          <CardContent className="pt-6">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-2xl font-bold">{company.name}</h2>
-              <Badge variant="secondary" className="text-lg">
-                {company.cvr}
-              </Badge>
-            </div>
-            {selectedCompanyId === company.id && !loading && companyData && (
-              <div className="flex flex-col ">
-                <div className="flex flex-1">{renderMainInfo(companyData)}</div>
-                <Collapsible
-                  open={isOpen}
-                  onOpenChange={setIsOpen}
-                  className="space-y-2"
-                >
-                  <CollapsibleTrigger className="flex items-center text-sm font-medium text-gray-500">
-                    {isOpen ? (
-                      <ChevronUp className="mr-1 size-4" />
-                    ) : (
-                      <ChevronDown className="mr-1 size-4" />
-                    )}
-                    {isOpen ? "Hide" : "Show"} additional information
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    {renderAdditionalInfo(companyData)}
-                    {renderProductionUnits(companyData)}
-                  </CollapsibleContent>
-                </Collapsible>
-                <div className="mt-6">
-                  <PredefinedActions
-                    vectorStoreId={company.vectorStoreId}
-                    selectedDocuments={selectedDocuments}
-                  />
-                </div>
-                <div className="flex-1">
-                  <OpenaiLibrary
-                    vectorStoreId={company.vectorStoreId}
-                    onSelectDocuments={handleSelectDocuments}
-                  />
-                </div>
-
-                <div className="mt-6 flex justify-end">
-                  <Button
-                    variant="destructive"
-                    onClick={() => setDeleteDialogOpen(true)}
-                  >
-                    Delete Company
-                  </Button>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
-      {selectedCompanyId && (
-        <DeleteCompanyDialog
-          open={deleteDialogOpen}
-          onOpenChange={setDeleteDialogOpen}
-          companyId={selectedCompanyId}
-        />
-      )}
-      <Button
-        variant="secondary"
-        onClick={() => {
-          setAddCompanyOpen(true)
-        }}
-      >
-        Add new company
-      </Button>
     </div>
   )
 }

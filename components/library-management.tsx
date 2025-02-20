@@ -1,13 +1,13 @@
 "use client"
-import { useState, useRef, useEffect } from "react"
+
+import { useState, useRef } from "react"
 import useSWR from "swr"
 import { fetcher } from "@/utils/functions"
 import { Button } from "@/components/ui/button"
 import { PlusIcon, TrashIcon, UploadIcon } from "lucide-react"
-import Modal from "@/components/modal"
-import { AddDocumentForm } from "@/components/add-document-form"
-import { useCompanyContext } from "@/lib/companyProvider"
-import { Input } from "@/components/ui/input"
+import { Dialog } from "@/components/ui/dialog"
+import { AddDocumentForm } from "./add-document-form"
+import { useCompanyContext } from "@/lib/company-provider"
 import {
   Select,
   SelectContent,
@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { toast } from "@/hooks/use-toast"
+import { useToast } from "@/components/ui/use-toast"
 import {
   Table,
   TableBody,
@@ -24,13 +24,8 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table"
-
-type Document = {
-  id: string
-  name: string
-  category: string
-  url: string
-}
+import { type SelectDocument } from "@/db/schema"
+import { documentTypeEnum } from "@/db/schema/document-types-schema"
 
 const LibraryManagement = () => {
   const { selectedCompanyId } = useCompanyContext()
@@ -38,9 +33,9 @@ const LibraryManagement = () => {
     data: documents,
     mutate,
     isLoading
-  } = useSWR(
+  } = useSWR<SelectDocument[]>(
     selectedCompanyId
-      ? `/api/library/list?companyId=${selectedCompanyId}`
+      ? `/api/documents/storage/list?companyId=${selectedCompanyId}`
       : null,
     fetcher,
     { fallbackData: [] }
@@ -50,32 +45,65 @@ const LibraryManagement = () => {
   const inputFileRef = useRef<HTMLInputElement>(null)
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([])
   const [deleteQueue, setDeleteQueue] = useState<Array<string>>([])
+  const { toast } = useToast()
 
   const handleDelete = async (docId: string) => {
-    await fetch(`/api/library/delete?id=${docId}`, { method: "DELETE" })
-    mutate()
+    try {
+      setDeleteQueue(currentQueue => [...currentQueue, docId])
+      await fetch(`/api/documents/storage/delete?id=${docId}`, {
+        method: "DELETE"
+      })
+      mutate()
+      toast({
+        title: "Success",
+        description: "Document deleted successfully"
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete document",
+        variant: "destructive"
+      })
+    } finally {
+      setDeleteQueue(currentQueue => currentQueue.filter(id => id !== docId))
+    }
   }
 
   const handleFileUpload = async (file: File) => {
     if (file && selectedCompanyId) {
-      setUploadQueue(currentQueue => [...currentQueue, file.name])
-      await fetch(
-        `/api/files/upload?filename=${file.name}&companyId=${selectedCompanyId}`,
-        {
+      try {
+        setUploadQueue(currentQueue => [...currentQueue, file.name])
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("companyId", selectedCompanyId)
+
+        await fetch("/api/documents/storage/upload", {
           method: "POST",
-          body: file
-        }
-      )
-      setUploadQueue(currentQueue =>
-        currentQueue.filter(filename => filename !== file.name)
-      )
-      mutate()
+          body: formData
+        })
+
+        mutate()
+        toast({
+          title: "Success",
+          description: "File uploaded successfully"
+        })
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to upload file",
+          variant: "destructive"
+        })
+      } finally {
+        setUploadQueue(currentQueue =>
+          currentQueue.filter(filename => filename !== file.name)
+        )
+      }
     }
   }
 
   const filteredDocuments = selectedCategory
-    ? documents.filter((doc: Document) => doc.category === selectedCategory)
-    : documents
+    ? (documents?.filter(doc => doc.type === selectedCategory) ?? [])
+    : (documents ?? [])
 
   if (!selectedCompanyId) {
     return <p>Please select a company to view documents.</p>
@@ -86,16 +114,19 @@ const LibraryManagement = () => {
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Library</h2>
         <div className="flex items-center space-x-2">
-          <Select onValueChange={setSelectedCategory}>
+          <Select
+            value={selectedCategory ?? undefined}
+            onValueChange={setSelectedCategory}
+          >
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Filter by category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Financial">Financial</SelectItem>
-              <SelectItem value="Legal">Legal</SelectItem>
-              <SelectItem value="HR">HR</SelectItem>
-              <SelectItem value="Technical">Technical</SelectItem>
-              <SelectItem value="Meetings">Meetings</SelectItem>
+              {documentTypeEnum.enumValues.map(type => (
+                <SelectItem key={type} value={type}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button onClick={() => setIsModalOpen(true)}>
@@ -135,28 +166,39 @@ const LibraryManagement = () => {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Category</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredDocuments.map((document: Document) => (
+                {filteredDocuments.map(document => (
                   <TableRow key={document.id}>
                     <TableCell>
                       <div className="max-w-xs truncate" title={document.name}>
-                        {document.name.split(".").slice(0, -1).join(".")}
+                        {document.name}
                       </div>
-                      <div className="text-xs text-zinc-500">
-                        {`.${document.name.split(".").pop()}`}
-                      </div>
+                      {document.description && (
+                        <div className="text-xs text-zinc-500">
+                          {document.description}
+                        </div>
+                      )}
                     </TableCell>
-                    <TableCell>{document.category}</TableCell>
+                    <TableCell>
+                      {document.type.charAt(0).toUpperCase() +
+                        document.type.slice(1)}
+                    </TableCell>
+                    <TableCell>{document.status}</TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
-                        color="red"
                         onClick={() => handleDelete(document.id)}
+                        disabled={deleteQueue.includes(document.id)}
                       >
-                        <TrashIcon />
+                        {deleteQueue.includes(document.id) ? (
+                          "Deleting..."
+                        ) : (
+                          <TrashIcon className="size-4" />
+                        )}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -166,7 +208,7 @@ const LibraryManagement = () => {
           </div>
         )}
       </div>
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <AddDocumentForm
           selectedCompanyId={selectedCompanyId}
           onSuccess={() => {
@@ -174,7 +216,7 @@ const LibraryManagement = () => {
             setIsModalOpen(false)
           }}
         />
-      </Modal>
+      </Dialog>
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { auth } from "@clerk/nextjs/server"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ["application/pdf"]
-const BUCKET_NAME = process.env.PDF_BUCKET_NAME || "pdf-uploads"
+const BUCKET_NAME = process.env.BOARD_DOCUMENTS_BUCKET || "board-documents"
 
 function validateFile(file: File): boolean {
   if (file.size > MAX_FILE_SIZE) {

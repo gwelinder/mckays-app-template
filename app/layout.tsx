@@ -23,8 +23,8 @@ import "./globals.css"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Mckay's App Template",
-  description: "A full-stack web app template."
+  title: "Board AI",
+  description: "Your AI board assistant"
 }
 
 export default async function RootLayout({
@@ -37,7 +37,9 @@ export default async function RootLayout({
   if (userId) {
     const profileRes = await getProfileByUserIdAction(userId)
     if (!profileRes.isSuccess) {
-      await createProfileAction({ userId })
+      await createProfileAction({
+        userId
+      })
     }
   }
 
@@ -49,6 +51,7 @@ export default async function RootLayout({
             "bg-background mx-auto min-h-screen w-full scroll-smooth antialiased",
             inter.className
           )}
+          suppressHydrationWarning
         >
           <Providers
             attribute="class"
